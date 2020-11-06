@@ -18,135 +18,86 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
+using System.Linq;
 
-namespace YAXBPC
-{
-    class Database
-    {
-        public Database(string filePath)
-        {
-            this.filePath = filePath;            
-        }
+namespace YAXBPC {
+  class Database {
+    public Database(string filePath) => FilePath = filePath;
 
-        private string filePath = "";
+    public string FilePath { get; set; } = string.Empty;
+    public Dictionary<string, string> Settings { get; set; } = new Dictionary<string, string>();
 
-        // We store the name in /names/ and data in /data/
-        List<string> names = new List<string>();
-        List<string> data = new List<string>();
+    /// <summary>
+    /// Adds a new variable to database or updates an existing variable.
+    /// </summary>
+    /// <param name="name">The name of the variable you want to store. It mustn't contain any '=' or newline character</param>
+    /// <param name="value">Its value</param>
+    /// <returns>True if writing sucessfully, else false</returns>
+    public bool Write(string name, string value) {
+      if (name.Contains("=") || name.Contains("\r") || name.Contains("\n"))
+        return false;
+      
+      Settings[name] = value;
 
-        public string FilePath
-        {
-            get { return this.filePath; }
-            set { this.filePath = value; }
-        }
-
-        /// <summary>
-        /// Adds a new variable to database or updates an existing variable.
-        /// </summary>
-        /// <param name="name">The name of the variable you want to store. It mustn't contain any '=' or newline character</param>
-        /// <param name="value">Its value</param>
-        /// <returns>True if writing sucessfully, else false</returns>
-        public Boolean Write(string name, string value)
-        {
-            if (name.Contains("=") || name.Contains("\r") || name.Contains("\n")) return false;
-            int i = names.IndexOf(name);
-            if (i < 0)
-            {
-                // add new item
-                names.Add(name);
-                data.Add(value);
-            }
-            else
-            {
-                // update item
-                data[i] = value;
-            }
-            return true;
-        }
-
-        /// <summary>
-        /// Reads a variable in database
-        /// </summary>
-        /// <param name="name">The name of the variable you want to read</param>
-        /// <returns>Its value if found, else null</returns>
-        public string Read(string name)
-        {
-            int i = names.IndexOf(name);
-            if (i >= 0)
-            {
-                return data[i];
-            }
-            else
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Loads data from file
-        /// </summary>
-        /// <returns>Error message if any, "OK" if all OK</returns>
-        public string Load()
-        {
-            try
-            {
-                string[] fileContent = System.IO.File.ReadAllLines(filePath);
-                foreach (string t in fileContent)
-                {
-                    int pos = t.IndexOf("=");
-                    if (pos > 0)
-                    {
-                        string name = t.Substring(0,pos);
-                        string value = (t.Length > pos + 1) ? t.Substring(pos + 1) : "";
-                        this.Write(name, value);
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                return e.Message;
-            }
-            return "OK";
-        }
-
-        /// <summary>
-        /// Writes data in cache to disk
-        /// </summary>
-        /// <returns>Error message if any</returns>
-        public string Flush()
-        {
-            try
-            {
-                System.IO.File.WriteAllText(filePath, this.ToString());
-            }
-            catch(Exception e)
-            {
-                return e.Message;
-            }
-            return null;
-        }
-
-        /// <summary>
-        /// Returns all data currently storing in string format
-        /// </summary>
-        /// <returns>Data in string format</returns>
-        public override string ToString()
-        {
-            string output = "";
-            int n = names.Count;
-            for (int i = 0; i < n; i++)
-            {
-                output += names[i] + "=" + data[i] + "\n";
-            }
-            return output;
-        }
-
-        /// <summary>
-        /// Flushes data cache and closes. *Incomplete*
-        /// </summary>
-        public void Close()
-        {
-            this.Flush();
-        }
+      return true;
     }
+
+    /// <summary>
+    /// Reads a variable in database
+    /// </summary>
+    /// <param name="name">The name of the variable you want to read</param>
+    /// <returns>Its value if found, else null</returns>
+    public string Read(string name) {
+      return Settings.TryGetValue(name, out var ret) ? ret : null;
+    }
+
+    /// <summary>
+    /// Loads data from file
+    /// </summary>
+    /// <returns>Error message if any, "OK" if all OK</returns>
+    public bool Load() {
+      try {
+        string[] fileContent = System.IO.File.ReadAllLines(FilePath);
+        foreach (string t in fileContent) {
+          int pos = t.IndexOf("=");
+          if (pos > 0) {
+            string name = t.Substring(0, pos);
+            string value = (t.Length > pos + 1) ? t.Substring(pos + 1) : "";
+            Settings[name] = value;
+          }
+        }
+      }
+      catch (Exception e) {
+        throw e;
+      }
+      return true;
+    }
+
+    /// <summary>
+    /// Writes data in cache to disk
+    /// </summary>
+    /// <returns>Error message if any</returns>
+    public string Flush() {
+      try {
+        System.IO.File.WriteAllText(FilePath, this.ToString());
+      }
+      catch (Exception e) {
+        return e.Message;
+      }
+      return null;
+    }
+
+    /// <summary>
+    /// Returns all data currently storing in string format
+    /// </summary>
+    /// <returns>Data in string format</returns>
+    public override string ToString() => string.Join(Environment.NewLine, Settings.Select(kvp => $"{kvp.Key}={kvp.Value}"));
+
+    /// <summary>
+    /// Flushes data cache and closes. *Incomplete*
+    /// </summary>
+    public void Close() {
+      this.Flush();
+    }
+  }
 }
