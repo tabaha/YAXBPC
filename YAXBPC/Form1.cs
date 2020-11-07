@@ -23,6 +23,7 @@ using System.IO;
 using System.Text;
 using System.Windows.Forms;
 using System.Text.RegularExpressions;
+using System.Linq;
 
 namespace YAXBPC {
   public partial class frmMain : Form {
@@ -58,42 +59,42 @@ namespace YAXBPC {
     #region Global variables & type defs
 
     // runtime environment & debug mode
-    Boolean debugMode = false;
-    Boolean forceUnicodeMode = false;
-    String settingsFile = "";
-    String programPath = "";
-    String programDir = "";
-    Boolean runningInWindows = false;
+    bool debugMode = false;
+    bool forceUnicodeMode = false;
+    string settingsFile = "";
+    string programPath = "";
+    string programDir = "";
+    bool runningInWindows = false;
 
     Database settings;
-    String quote = '"'.ToString();
+    string quote = '"'.ToString();
     Int32 outputPlace = 0;
     Int32 currentlySelectedTab = 0;
     Int32 currentlyBeingEditedJob = 0;
-    Boolean tryDetectingEpisodeNumber = false;
-    Boolean useCustomParamenter = false;
-    String customParamenter = "";
-    Boolean run64bitxdelta = false;
-    Boolean dist64bitxdelta = false;
-    Boolean funnyMode = false;
-    Boolean batchProcessingMode = false;
-    Boolean addNewPatchToApplyAllScripts = false;
-    Boolean alwaysCopySourceFiles = false;
-    Boolean skipAlternativeScripts = false;
+    bool tryDetectingEpisodeNumber = false;
+    bool useCustomParamenter = false;
+    string customParamenter = "";
+    bool run64bitxdelta = false;
+    bool dist64bitxdelta = false;
+    bool funnyMode = false;
+    bool batchProcessingMode = false;
+    bool addNewPatchToApplyAllScripts = false;
+    bool alwaysCopySourceFiles = false;
+    bool skipAlternativeScripts = false;
 
     // shared variables for batch processing
     Int32 jobsCount = 0;
-    Boolean thisJobDone = false;
-    String sourceFile_currentJob = "";
-    String targetFile_currentJob = "";
-    String outputDir_currentJob = "";
+    bool thisJobDone = false;
+    string sourceFile_currentJob = "";
+    string targetFile_currentJob = "";
+    string outputDir_currentJob = "";
 
     public delegate void Int32_Delegate(Int32 index);
-    public delegate void String_Delegate(String log);
+    public delegate void String_Delegate(string log);
     public delegate void Void_Delegate();
 
     struct EpNum {
-      public String text;// = "";
+      public string text;// = "";
       public Int32 number;// = -1;
       public Int32 length;// = 0;
       public Int32 priority;// = 0; 
@@ -183,7 +184,7 @@ namespace YAXBPC {
 
     #region Core methods
 
-    private Boolean isMSWindowsEnv() {
+    private bool isMSWindowsEnv() {
       System.OperatingSystem osInfo = System.Environment.OSVersion;
       switch (osInfo.Platform) {
         case System.PlatformID.Win32Windows: {
@@ -198,15 +199,15 @@ namespace YAXBPC {
       }
     }
 
-    private Boolean stringContainsNonASCIIChar(string inputString) {
+    private bool stringContainsNonASCIIChar(string inputString) {
       if (forceUnicodeMode) return true;
       // Strip non-ASCII characters from the string using Regex
       string onlyAscii = Regex.Replace(inputString, @"[^\u0000-\u007F]", string.Empty);
-      // If inputString is different from onlyAscii then it contains non-ascii char
+      // If inputstring is different from onlyAscii then it contains non-ascii char
       return (inputString != onlyAscii);
     }
 
-    private Boolean stringContainsNon1252Char(string inputString) {
+    private bool stringContainsNon1252Char(string inputString) {
       // check if string contains any character not in windows-1252
       // by encoding to windows-1252 byte array and decode back to unicode
       // if something changes then true
@@ -361,7 +362,7 @@ namespace YAXBPC {
     }
 
     private void createPatch(string _sourceFile, string _targetFile, string _outDir) {
-      Boolean useRelativePath = chbOnlyStoreFileNameInVCDIFF.Checked || stringContainsNonASCIIChar(Path.GetFileName(_sourceFile)) || stringContainsNonASCIIChar(Path.GetFileName(_targetFile));
+      bool useRelativePath = chbOnlyStoreFileNameInVCDIFF.Checked || stringContainsNonASCIIChar(Path.GetFileName(_sourceFile)) || stringContainsNonASCIIChar(Path.GetFileName(_targetFile));
       string sourceFile = _sourceFile;
       string targetFile = _targetFile;
       string sourceFileName = Path.GetFileName(_sourceFile);
@@ -963,7 +964,38 @@ namespace YAXBPC {
     }
 
     private void btnBatchLoadDirs_Click(object sender, EventArgs e) {
-      MessageBox.Show("This function hasn't been implemented!");
+
+      if(string.IsNullOrEmpty(txtBatchSourceDir.Text) || string.IsNullOrEmpty(txtBatchTargetDir.Text)) {
+        MessageBox.Show("Please select source and target directories!");
+        return;
+      }
+
+      //Basic implementation
+      //Gets file list from source and target dirs, sorts them alphabetically
+      //Limits the number of files to the amount of files in the directory with least files
+      //Matches the first file in the source dir with the first file in the target dir, and so on
+
+
+      var allSourceFiles = Directory.EnumerateFiles(txtBatchSourceDir.Text).OrderBy(s => s);
+      var allTargetFiles = Directory.EnumerateFiles(txtBatchTargetDir.Text).OrderBy(s => s);
+
+      int numFiles = allSourceFiles.Count() > allTargetFiles.Count() ? allTargetFiles.Count() : allSourceFiles.Count();
+
+      if (numFiles == 0) {
+        MessageBox.Show("No files found in one of the directories!");
+        return;
+      }
+
+      var sourceFiles = allSourceFiles.Take(numFiles);
+      var targetFiles = allTargetFiles.Take(numFiles);
+
+      int i = 1;
+      foreach (var entry in sourceFiles.Zip(targetFiles, (source, target) => (source, target))) {
+        var lvi = listView1.Items.Add(entry.source);
+        lvi.SubItems.Add(entry.target);
+        lvi.SubItems.Add(txtOutputDir.Text + @"\" + i.ToString("00"));
+        i++;
+      }
     }
 
     #endregion
@@ -1109,30 +1141,30 @@ namespace YAXBPC {
 
     #region Setting methods
 
-    private Boolean loadSettingsSub_Boolean(string name, Boolean defaultValue) {
+    private bool loadSettingsSub_bool(string name, bool defaultValue) {
       string text = settings.Read(name);
       return (text != null) ? text == "true" : defaultValue;
     }
 
-    private String loadSettingsSub_String(string name, String defaultValue) {
+    private string loadSettingsSub_String(string name, string defaultValue) {
       string text = settings.Read(name);
       return (text != null) ? text : defaultValue;
     }
 
     private void loadSettings() {
       customParamenter = txtCustomXdeltaParams.Text = loadSettingsSub_String("Setting.CustomParamenter", txtCustomXdeltaParams.Text);
-      useCustomParamenter = chbUseCustomXdeltaParams.Checked = loadSettingsSub_Boolean("Setting.UseCustomParamenter", chbUseCustomXdeltaParams.Checked);
+      useCustomParamenter = chbUseCustomXdeltaParams.Checked = loadSettingsSub_bool("Setting.UseCustomParamenter", chbUseCustomXdeltaParams.Checked);
 
       txtCustomXdeltaParamsForApplying.Text = loadSettingsSub_String("Setting.CustomApplyingParamenter", txtCustomXdeltaParamsForApplying.Text);
-      chbUseCustomXdeltaParamsForApplying.Checked = loadSettingsSub_Boolean("Setting.UseCustomApplyingParamenter", chbUseCustomXdeltaParamsForApplying.Checked);
+      chbUseCustomXdeltaParamsForApplying.Checked = loadSettingsSub_bool("Setting.UseCustomApplyingParamenter", chbUseCustomXdeltaParamsForApplying.Checked);
 
-      tryDetectingEpisodeNumber = chbDetEpNum.Checked = loadSettingsSub_Boolean("Setting.DetectEpNum", chbDetEpNum.Checked);
+      tryDetectingEpisodeNumber = chbDetEpNum.Checked = loadSettingsSub_bool("Setting.DetectEpNum", chbDetEpNum.Checked);
       txtAddTextWhenSwap.Text = loadSettingsSub_String("Setting.AddThisTextWhenSwap", txtAddTextWhenSwap.Text);
-      chbAddTextWhenSwap.Checked = loadSettingsSub_Boolean("Setting.AddTextWhenSwap", chbAddTextWhenSwap.Checked);
-      chbNewAutoName.Checked = loadSettingsSub_Boolean("Setting.chbNewAutoName", chbNewAutoName.Checked);
+      chbAddTextWhenSwap.Checked = loadSettingsSub_bool("Setting.AddTextWhenSwap", chbAddTextWhenSwap.Checked);
+      chbNewAutoName.Checked = loadSettingsSub_bool("Setting.chbNewAutoName", chbNewAutoName.Checked);
 
-      run64bitxdelta = chbRun64bitxdelta3.Checked = loadSettingsSub_Boolean("Setting.chbRun64bitxdelta3", chbRun64bitxdelta3.Checked);
-      dist64bitxdelta = chbDist64bitxdelta3.Checked = loadSettingsSub_Boolean("Setting.chbDist64bitxdelta3", chbDist64bitxdelta3.Checked);
+      run64bitxdelta = chbRun64bitxdelta3.Checked = loadSettingsSub_bool("Setting.chbRun64bitxdelta3", chbRun64bitxdelta3.Checked);
+      dist64bitxdelta = chbDist64bitxdelta3.Checked = loadSettingsSub_bool("Setting.chbDist64bitxdelta3", chbDist64bitxdelta3.Checked);
 
       string text = settings.Read("OutDir.Place2Go");
       int number = 0;
@@ -1145,13 +1177,13 @@ namespace YAXBPC {
       }
       txtDefaultOutDir.Text = loadSettingsSub_String("OutDir.txtDefaultOutDir", txtDefaultOutDir.Text);
 
-      funnyMode = chbFunnyMode.Checked = loadSettingsSub_Boolean("Setting.chbFunnyMode", chbFunnyMode.Checked);
+      funnyMode = chbFunnyMode.Checked = loadSettingsSub_bool("Setting.chbFunnyMode", chbFunnyMode.Checked);
 
-      addNewPatchToApplyAllScripts = chbAddNewPatchToApplyAllScripts.Checked = loadSettingsSub_Boolean("Setting.chbAddNewPatchToApplyAllScripts", chbAddNewPatchToApplyAllScripts.Checked);
-      alwaysCopySourceFiles = chbAlwaysCopySourceFiles.Checked = loadSettingsSub_Boolean("Setting.chbAlwaysCopySourceFiles", chbAlwaysCopySourceFiles.Checked);
-      chbOnlyStoreFileNameInVCDIFF.Checked = loadSettingsSub_Boolean("Setting.chbOnlyStoreFileNameInVCDIFF", chbOnlyStoreFileNameInVCDIFF.Checked);
-      skipAlternativeScripts = chbSkipAlternativeScripts.Checked = loadSettingsSub_Boolean("Setting.chbSkipAlternativeScripts", chbSkipAlternativeScripts.Checked);
-      chbSaveFormsInCreatePatchTab.Checked = loadSettingsSub_Boolean("Setting.chbSaveFormsInCreatePatchTab", chbSaveFormsInCreatePatchTab.Checked);
+      addNewPatchToApplyAllScripts = chbAddNewPatchToApplyAllScripts.Checked = loadSettingsSub_bool("Setting.chbAddNewPatchToApplyAllScripts", chbAddNewPatchToApplyAllScripts.Checked);
+      alwaysCopySourceFiles = chbAlwaysCopySourceFiles.Checked = loadSettingsSub_bool("Setting.chbAlwaysCopySourceFiles", chbAlwaysCopySourceFiles.Checked);
+      chbOnlyStoreFileNameInVCDIFF.Checked = loadSettingsSub_bool("Setting.chbOnlyStoreFileNameInVCDIFF", chbOnlyStoreFileNameInVCDIFF.Checked);
+      skipAlternativeScripts = chbSkipAlternativeScripts.Checked = loadSettingsSub_bool("Setting.chbSkipAlternativeScripts", chbSkipAlternativeScripts.Checked);
+      chbSaveFormsInCreatePatchTab.Checked = loadSettingsSub_bool("Setting.chbSaveFormsInCreatePatchTab", chbSaveFormsInCreatePatchTab.Checked);
       if (chbSaveFormsInCreatePatchTab.Checked) {
         txtSourceFile.Text = settings.Read("CreatePatch.txtSourceFile");
         txtTargetFile.Text = settings.Read("CreatePatch.txtTargetFile");
